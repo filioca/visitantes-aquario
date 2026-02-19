@@ -4,18 +4,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import re
+import unicodedata
+from rapidfuzz import process, utils
+from functools import lru_cache
 
 # ==========================================
 # CONFIGURAÇÃO E ESTILO
 # ==========================================
-st.set_page_config(page_title="Dashboard Aquário Pro", layout="wide")
+st.set_page_config(page_title="Dashboard Aquário Pro+", layout="wide")
 
-# Custom CSS for Premium Look
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
-    }
+    .main { background-color: #f8f9fa; }
     .stMetric {
         background-color: #ffffff;
         padding: 15px;
@@ -26,249 +26,270 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.title("🐠 Dashboard Gerencial - Aquário Municipal")
-st.markdown("### Processamento Multi-Arquivos & Inteligência de Localização")
-st.info("Arraste um ou mais arquivos Excel (.xlsx) ou CSV para consolidar a análise.")
+st.markdown("### Processamento de Dados com Inteligência Geográfica (3-Stage Sanitization)")
 
 # ==========================================
-# UPLOAD MULTI-ARQUIVOS
+# LISTA DE REFERÊNCIA (MT + CAPITAIS)
+# ==========================================
+CIDADES_REFERENCIA = [
+    "Cuiabá", "Várzea Grande", "Rondonópolis", "Sinop", "Sorriso", "Tangará da Serra", 
+    "Cáceres", "Primavera do Leste", "Lucas do Rio Verde", "Barra do Garças", 
+    "Alta Floresta", "Pontes e Lacerda", "Juína", "Guarantã do Norte", "Poconé", 
+    "Nova Mutum", "Campo Novo do Parecis", "Barra do Bugres", "Colniza", "Vila Rica", 
+    "Peixoto de Azevedo", "Água Boa", "Juara", "Colíder", "Diamantino", "Canarana", 
+    "Campo Verde", "Aripuanã", "Nova Xavantina", "Sapezal", "Poxoréu", "Jaciara", 
+    "Brasnorte", "Paranatinga", "Pedra Preta", "Guiratinga", "Nova Bandeirantes", 
+    "São José do Rio Claro", "Araputanga", "Matupá", "Nobres", "Alto Araguaia", 
+    "Vila Bela da Santíssima Trindade", "Campinápolis", "Juruena", "Porto Alegre do Norte", 
+    "Cláudia", "Comodoro", "Vera", "Denise", "Rosário Oeste", "Nossa Senhora do Livramento",
+    "São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Fortaleza", "Belo Horizonte", 
+    "Manaus", "Curitiba", "Recife", "Porto Alegre", "Belém", "Goiânia", "Guarulhos", 
+    "Campinas", "São Luís", "Maceió", "Duque de Caxias", "Campo Grande", "Natal", 
+    "Teresina", "São Bernardo do Campo", "João Pessoa", "Osasco", "Santo André", 
+    "Jaboatão dos Guararapes", "Uberlândia", "Contagem", "Sorocaba", "Ribeirão Preto", 
+    "Aracaju", "Feira de Santana", "Cuiabá", "Joinville", "Aparecida de Goiânia", 
+    "Londrina", "Ananindeua", "Porto Velho", "Serra", "Niterói", "Belford Roxo", 
+    "Caxias do Sul", "Campos dos Goytacazes", "Macapá", "Florianópolis", "Boa Vista",
+    "Rio Branco", "Vitória", "Palmas"
+]
+
+# ==========================================
+# PIPELINE DE SANITIZAÇÃO
+# ==========================================
+
+@lru_cache(maxsize=1000)
+def fuzzy_match_cidade(nome_sujo):
+    """Etapa 3: Fuzzy Matching contra lista de referência."""
+    if not nome_sujo: return ""
+    result = process.extractOne(nome_sujo, CIDADES_REFERENCIA, processor=utils.default_process)
+    if result and result[1] >= 85:
+        return result[0]
+    return nome_sujo.title()
+
+def remover_acentos(texto):
+    if pd.isna(texto): return ""
+    texto = str(texto).lower().strip()
+    return ''.join(c for c in unicodedata.normalize('NFKD', texto) 
+                  if unicodedata.category(c) != 'Mn')
+
+def sanitizar_pipeline(cidade_origem):
+    """Pipeline Triple-Stage Fail-Fast."""
+    if pd.isna(cidade_origem): return "Não Informado", False
+    
+    texto_raw = str(cidade_origem).lower().strip()
+    
+    # ---------------------------------------------------------
+    # STAGE 1: TRADUTOR DE ESTRANGEIROS
+    # ---------------------------------------------------------
+    mapeamento_estrangeiro = {
+        r'\b(usa|eua|united states|texas|florida|miami|new york)\b': "Estados Unidos",
+        r'\b(france|franca|paris)\b': "França",
+        r'\b(belgium|belgica|brussels|bruxelas)\b': "Bélgica",
+        r'\b(czech|tcheca|prague)\b': "República Tcheca",
+        r'\b(argentina|buenos aires|cordoba|rosario)\b': "Argentina",
+        r'\b(bolivia|la paz|santa cruz)\b': "Bolívia",
+        r'\b(paraguay|paraguai|asuncion|assuncao)\b': "Paraguai",
+        r'\b(chile|santiago)\b': "Chile",
+        r'\b(portugal|lisboa|porto)\b': "Portugal",
+        r'\b(spain|espanha|madrid|barcelona)\b': "Espanha",
+        r'\b(italy|italia|rome|roma)\b': "Itália",
+        r'\b(germany|alemanha|berlin)\b': "Alemanha",
+        r'\b(japan|japao|tokyo|toquio)\b': "Japão",
+        r'\b(china|beijing|shanghai)\b': "China",
+        r'\b(uk|reino unido|london|londres|england|inglaterra)\b': "Reino Unido"
+    }
+    
+    for regex, pais in mapeamento_estrangeiro.items():
+        if re.search(regex, texto_raw):
+            return pais, True
+            
+    # ---------------------------------------------------------
+    # STAGE 2: SIGLAS E LIMPEZA LOCAL
+    # ---------------------------------------------------------
+    # Limpeza básica (acentos, sufixos)
+    c_limpa = remover_acentos(texto_raw)
+    c_limpa = re.sub(r'(\bmt\b|\bbr\b|\bbrasil\b|[-/])', ' ', c_limpa).strip()
+    c_limpa = re.sub(r'\s+', ' ', c_limpa) # Remove espaços duplos
+    
+    # Siglas diretas
+    siglas = {
+        r'\bcba\b': "Cuiabá",
+        r'\bvg\b': "Várzea Grande",
+        r'\bsp\b': "São Paulo",
+        r'\bbh\b': "Belo Horizonte",
+        r'\brj\b': "Rio de Janeiro",
+        r'\bcgr\b': "Campo Grande",
+        r'\bcur\b': "Curitiba",
+        r'\bgyn\b': "Goiânia"
+    }
+    
+    for sigla_re, nome_oficial in siglas.items():
+        if re.search(sigla_re, c_limpa):
+            return nome_oficial, False
+
+    # ---------------------------------------------------------
+    # STAGE 3: FUZZY MATCHING (MT + CAPITAIS)
+    # ---------------------------------------------------------
+    nome_final = fuzzy_match_cidade(c_limpa)
+    return nome_final, False
+
+# ==========================================
+# UPLOAD E CARREGAMENTO
 # ==========================================
 uploaded_files = st.file_uploader(
-    "Escolha os arquivos de visitantes", 
+    "Upload de arquivos de visitantes (XLSX ou CSV)", 
     type=['xlsx', 'csv'], 
     accept_multiple_files=True
 )
 
-def process_whatsapp(phone):
-    """Limpa e extrai DDI do WhatsApp."""
-    if pd.isna(phone):
-        return None
-    # Remove tudo que não é dígito
-    clean = re.sub(r'\D', '', str(phone))
-    if not clean:
-        return None
-    return clean
-
 if uploaded_files:
     dataframes = []
     
-    for uploaded_file in uploaded_files:
+    for f in uploaded_files:
         try:
-            if uploaded_file.name.endswith('.csv'):
-                try:
-                    curr_df = pd.read_csv(uploaded_file)
-                except:
-                    curr_df = pd.read_csv(uploaded_file, encoding='latin1', sep=';')
+            if f.name.endswith('.csv'):
+                try: df_cur = pd.read_csv(f)
+                except: df_cur = pd.read_csv(f, encoding='latin1', sep=';')
             else:
-                curr_df = pd.read_excel(uploaded_file)
+                df_cur = pd.read_excel(f)
             
-            # Validação Mínima de Colunas (Preservando as 7 originais)
-            if curr_df.shape[1] < 6:
-                st.warning(f"⚠️ O arquivo `{uploaded_file.name}` parece estar incompleto e foi ignorado.")
-                continue
-                
-            curr_df = curr_df.iloc[:, 0:7]
-            curr_df.columns = ['Data_Hora', 'Nome', 'Cidade_Origem', 'Whatsapp', 'Idade', 'Qtd_Criancas', 'Obs']
-            dataframes.append(curr_df)
-            
+            if df_cur.shape[1] >= 6:
+                df_cur = df_cur.iloc[:, 0:7]
+                df_cur.columns = ['Data_Hora', 'Nome', 'Cidade_Origem', 'Whatsapp', 'Idade', 'Qtd_Criancas', 'Obs']
+                dataframes.append(df_cur)
         except Exception as e:
-            st.error(f"❌ Erro ao ler `{uploaded_file.name}`: {e}")
+            st.error(f"Erro no arquivo {f.name}: {e}")
 
     if not dataframes:
         st.stop()
 
-    # Consolidar Dados
-    df = pd.concat(dataframes, ignore_index=True)
-    
+    df_raw = pd.concat(dataframes, ignore_index=True)
+
     try:
         # ==========================================
-        # 1. PIPELINE DE LIMPEZA & TRATAMENTO
+        # PIPELINE DE TRATAMENTO
         # ==========================================
         
-        # --- DATAS (Guard Clause Integrada) ---
-        df['Data_Hora'] = pd.to_datetime(df['Data_Hora'], errors='coerce')
-        df = df.dropna(subset=['Data_Hora'])
-        if df.empty:
-            st.error("🚨 Nenhum dado válido encontrado após processar as datas.")
-            st.stop()
-            
+        # 1. Datas
+        df_raw['Data_Hora'] = pd.to_datetime(df_raw['Data_Hora'], errors='coerce')
+        df = df_raw.dropna(subset=['Data_Hora']).copy()
         df['Data'] = df['Data_Hora'].dt.date
-        df['Mes'] = df['Data_Hora'].dt.strftime('%Y-%m')
-        
-        # Tradução Dias da Semana
-        mapa_dias = {
-            'Monday': 'Segunda', 'Tuesday': 'Terça', 'Wednesday': 'Quarta', 
-            'Thursday': 'Quinta', 'Friday': 'Sexta', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
-        }
+        mapa_dias = {'Monday': 'Segunda', 'Tuesday': 'Terça', 'Wednesday': 'Quarta', 'Thursday': 'Quinta', 'Friday': 'Sexta', 'Saturday': 'Sábado', 'Sunday': 'Domingo'}
         df['Dia_Semana'] = df['Data_Hora'].dt.strftime('%A').map(mapa_dias)
-        ordem_dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-        df['Dia_Semana'] = pd.Categorical(df['Dia_Semana'], categories=ordem_dias, ordered=True)
+        df['Dia_Semana'] = pd.Categorical(df['Dia_Semana'], categories=list(mapa_dias.values()), ordered=True)
 
-        # --- CIDADES ---
-        df['Cidade_Limpa'] = df['Cidade_Origem'].astype(str).str.strip().str.title()
-        df.loc[df['Cidade_Limpa'].str.contains('Cuiab|Cba', case=False, na=False), 'Cidade_Limpa'] = 'Cuiabá'
-        df.loc[df['Cidade_Limpa'].str.contains('Varzea|Várzea', case=False, na=False), 'Cidade_Limpa'] = 'Várzea Grande'
+        # 2. Sanitização Numérica (Qtd_Criancas)
+        def process_criancas(val):
+            if pd.isna(val): return 0
+            s = str(val).lower().strip()
+            if any(term in s for term in ["nenhum", "nenhuma", "não", "nao", "zero"]): return 0
+            match = re.search(r'(\d+)', s)
+            return int(match.group(1)) if match else 0
+
+        df['Qtd_Criancas'] = df['Qtd_Criancas'].apply(process_criancas)
         
-        # --- IDADES & CRIANÇAS ---
-        df['Idade'] = pd.to_numeric(df['Idade'], errors='coerce')
-        df = df[(df['Idade'] > 0) & (df['Idade'] <= 100)]
-        df['Qtd_Criancas'] = pd.to_numeric(df['Qtd_Criancas'], errors='coerce').fillna(0)
-        
-        # Lógica de Excursão (Regra de Negócio Mantida)
-        limite_excursao = 40
-        media_real = df.loc[df['Qtd_Criancas'] <= limite_excursao, 'Qtd_Criancas'].mean()
-        media_real = int(round(media_real)) if not np.isnan(media_real) else 0
-        df.loc[df['Qtd_Criancas'] > limite_excursao, 'Qtd_Criancas'] = media_real
-        
+        # Limite de Excursão
+        lim_exc = 40
+        med_cr = df[df['Qtd_Criancas'] <= lim_exc]['Qtd_Criancas'].mean()
+        df.loc[df['Qtd_Criancas'] > lim_exc, 'Qtd_Criancas'] = int(round(med_cr)) if not np.isnan(med_cr) else 0
+
+        # 3. Sanitização Numérica (Idade)
+        def process_idade(val):
+            if pd.isna(val): return np.nan
+            match = re.search(r'(\d+)', str(val))
+            if match:
+                idade = int(match.group(1))
+                return idade if 1 <= idade <= 120 else np.nan
+            return np.nan
+
+        df['Idade'] = df['Idade'].apply(process_idade)
+
+        # 4. Sanitização de Cidades (3-Stage)
+        with st.spinner("Processando Inteligência Geográfica..."):
+            resultados = df['Cidade_Origem'].apply(sanitizar_pipeline)
+            df['Cidade_Limpa'] = [r[0] for r in resultados]
+            df['Estrangeiro'] = [r[1] for r in resultados]
+
         df['Total_Visitantes_Linha'] = 1 + df['Qtd_Criancas']
         df['Tipo_Grupo'] = df['Qtd_Criancas'].apply(lambda x: 'Família/Grupo' if x > 0 else 'Individual/Adultos')
 
-        # --- DETECÇÃO AVANÇADA DE ESTRANGEIROS ---
-        # 1. Via WhatsApp (DDI)
-        df['Whatsapp_Clean'] = df['Whatsapp'].apply(process_whatsapp)
-        
-        def is_foreign_ddi(val):
-            if not val: return False
-            # Se começar com 55 (Brasil), não é estrangeiro via DDI
-            # Consideramos estrangeiro se tiver DDI e não for 55
-            # Números brasileiros sem DDI costumam ter 10-11 dígitos. 
-            # Se tiver mais que isso e não começar com 55, é forte indício.
-            if len(val) >= 10:
-                if not val.startswith('55'):
-                    return True
-            return False
-
-        df['Estrangeiro_DDI'] = df['Whatsapp_Clean'].apply(is_foreign_ddi)
-
-        # 2. Via Localização (Regex Fallback)
-        termos_estrangeiros = ['Argentina', 'Bolivia', 'Paraguay', 'Uruguay', 'Chile', 'Peru', 'Colombia', 'Usa', 'Portugal', 'Spain', 'France', 'Italy', 'Germany', 'China', 'Japan', 'Bolívia', 'Paraguai', 'Uruguai']
-        termos_proibidos_brasil = ['Mt', 'Ms', 'Sp', 'Rj', 'Mg', 'Pr', 'Sc', 'Rs', 'Go', 'Df', 'Brasil', 'Mato Grosso', 'São Paulo', 'Rio De Janeiro']
-        regex_estrangeiro = r'\b(' + '|'.join(termos_estrangeiros) + r')\b'
-        regex_proibido = r'\b(' + '|'.join(termos_proibidos_brasil) + r')\b'
-        
-        df['Estrangeiro_Local'] = df['Cidade_Limpa'].str.contains(regex_estrangeiro, case=False, regex=True, na=False) & \
-                                 (~df['Cidade_Limpa'].str.contains(regex_proibido, case=False, regex=True, na=False))
-        
-        # 3. Consolidação (Cross-check)
-        df['Estrangeiro'] = df['Estrangeiro_DDI'] | df['Estrangeiro_Local']
-
         # ==========================================
-        # 2. SIDEBAR - FILTROS DINÂMICOS
+        # INTERFACE E FILTROS
         # ==========================================
-        st.sidebar.header("🔍 Filtros Consolidados")
-        
-        min_date = df['Data'].min()
-        max_date = df['Data'].max()
-        periodo = st.sidebar.date_input("Período de Análise", [min_date, max_date], min_value=min_date, max_value=max_date)
-        
-        cidades_unicas = sorted(df['Cidade_Limpa'].unique())
-        cidades_sel = st.sidebar.multiselect("Cidades de Origem", cidades_unicas, default=[])
-        
-        tipos_sel = st.sidebar.multiselect("Perfil do Visitante", df['Tipo_Grupo'].unique(), default=list(df['Tipo_Grupo'].unique()))
-        
-        ver_apenas_estrangeiros = st.sidebar.toggle("Focar apenas em Estrangeiros", value=False)
+        st.sidebar.header("🔍 Filtros Avançados")
+        periodo = st.sidebar.date_input("Intervalo", [df['Data'].min(), df['Data'].max()])
+        gringos_only = st.sidebar.toggle("Focar Estrangeiros")
 
-        # ==========================================
-        # 3. APLICAÇÃO DOS FILTROS
-        # ==========================================
         df_f = df.copy()
-        
         if len(periodo) == 2:
             df_f = df_f[(df_f['Data'] >= periodo[0]) & (df_f['Data'] <= periodo[1])]
-            
-        if cidades_sel:
-            df_f = df_f[df_f['Cidade_Limpa'].isin(cidades_sel)]
-            
-        df_f = df_f[df_f['Tipo_Grupo'].isin(tipos_sel)]
-        
-        if ver_apenas_estrangeiros:
-            df_f = df_f[df_f['Estrangeiro'] == True]
+        if gringos_only:
+            df_f = df_f[df_f['Estrangeiro']]
 
-        # ==========================================
-        # 4. EXIBIÇÃO DE RESULTADOS
-        # ==========================================
         if df_f.empty:
-            st.warning("⚠️ Nenhum dado encontrado para os filtros selecionados.")
+            st.warning("Sem dados para os filtros selecionados.")
         else:
-            total_adultos = len(df_f)
-            total_criancas = int(df_f['Qtd_Criancas'].sum())
-            total_geral = total_adultos + total_criancas
-            df_est = df_f[df_f['Estrangeiro'] == True]
-            qtd_estrangeiros = int(df_est['Total_Visitantes_Linha'].sum())
-
-            st.success(f"✅ Consolidação Concluída: {len(df_f)} registros de {len(dataframes)} arquivo(s).")
-            
             # KPIs
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Público Total", f"{total_geral:,}".replace(',','.'))
-            col2.metric("Adultos", f"{total_adultos:,}".replace(',','.'))
-            col3.metric("Crianças", f"{total_criancas:,}".replace(',','.'))
-            col4.metric("Estrangeiros", f"{qtd_estrangeiros:,}".replace(',','.'))
+            t_ad = len(df_f)
+            t_cr = int(df_f['Qtd_Criancas'].sum())
+            t_ge = t_ad + t_cr
+            t_est = int(df_f[df_f['Estrangeiro']]['Total_Visitantes_Linha'].sum())
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Público Total", f"{t_ge:,}".replace(',','.'))
+            c2.metric("Adultos", f"{t_ad:,}".replace(',','.'))
+            c3.metric("Crianças", f"{t_cr:,}".replace(',','.'))
+            c4.metric("Estrangeiros", f"{t_est:,}".replace(',','.'))
             st.markdown("---")
 
-            # Estilo de Gráficos
+            # Gráficos (Matplotlib/Seaborn)
             sns.set_theme(style="whitegrid")
             fig = plt.figure(figsize=(22, 14))
             plt.subplots_adjust(hspace=0.4, wspace=0.3)
-            plt.suptitle('Análise Consolidada de Visitantes - Aquário Municipal', fontsize=18, fontweight='bold', y=0.98)
-            
+            plt.suptitle('Dashboard Aquário - Análise Inteligente', fontsize=18, fontweight='bold', y=0.98)
+
             # 1. Composição
             plt.subplot(2, 3, 1)
-            plt.pie([total_adultos, total_criancas], labels=['Adultos', 'Crianças'], 
-                    autopct='%1.1f%%', colors=['#3498db', '#f1c40f'], startangle=90, explode=(0.05, 0))
-            plt.title('Distribuição Adultos vs Crianças', fontsize=14, fontweight='bold')
+            plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#3498db', '#f1c40f'], startangle=90, explode=(0.05, 0))
+            plt.title('Distribuição Adultos vs Crianças', fontweight='bold')
 
-            # 2. Perfil Visitantes
+            # 2. Perfil
             plt.subplot(2, 3, 2)
-            contagem_grupo = df_f['Tipo_Grupo'].value_counts()
-            if not contagem_grupo.empty:
-                plt.pie(contagem_grupo, labels=contagem_grupo.index, autopct='%1.1f%%', 
-                        colors=['#e74c3c', '#2ecc71'], startangle=90, wedgeprops={'alpha':0.8})
-                plt.title('Perfil dos Grupos', fontsize=14, fontweight='bold')
+            df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#e74c3c', '#2ecc71'], startangle=90)
+            plt.title('Perfil dos Visitantes', fontweight='bold')
+            plt.ylabel('')
 
             # 3. Evolução Diária
             plt.subplot(2, 3, 3)
-            evolucao = df_f.groupby('Data')['Total_Visitantes_Linha'].sum()
-            evolucao.plot(kind='line', marker='o', color='#8e44ad', linewidth=2)
-            plt.title('Evolução do Fluxo Diário', fontsize=14, fontweight='bold')
-            plt.xlabel('Data')
-            plt.ylabel('Visitantes')
+            df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#8e44ad')
+            plt.title('Fluxo de Pessoas', fontweight='bold')
             plt.xticks(rotation=45)
 
-            # 4. Média por Dia da Semana
+            # 4. Médias Operacionais
             plt.subplot(2, 3, 4)
-            soma_dia = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum()
-            qtd_dias = df_f.groupby('Dia_Semana')['Data'].nunique()
-            media = (soma_dia / qtd_dias).fillna(0)
-            sns.barplot(x=media.index, y=media.values, palette="rocket")
-            plt.title('Média por Dia da Semana', fontsize=14, fontweight='bold')
-            plt.xlabel('Dia')
-            plt.ylabel('Média')
+            media_op = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum() / df_f.groupby('Dia_Semana')['Data'].nunique()
+            sns.barplot(x=media_op.index, y=media_op.values, palette="rocket")
+            plt.title('Média de Visitantes por Dia', fontweight='bold')
 
-            # 5. Top Cidades
+            # 5. Top Origens (Sanitizado)
             plt.subplot(2, 3, 5)
-            top_cid = df_f['Cidade_Limpa'].value_counts().head(10)
-            if not top_cid.empty:
-                sns.barplot(x=top_cid.values, y=top_cid.index, palette="viridis")
-                plt.title('Top 10 Cidades de Origem', fontsize=14, fontweight='bold')
-                plt.xlabel('Visitantes')
-                plt.ylabel('Cidade')
+            top_10 = df_f['Cidade_Limpa'].value_counts().head(10)
+            sns.barplot(x=top_10.values, y=top_10.index, palette="viridis")
+            plt.title('Top 10 Cidades de Origem', fontweight='bold')
 
-            # 6. Estrangeiros (Top 5)
+            # 6. Estrangeiros
             plt.subplot(2, 3, 6)
-            if qtd_estrangeiros > 0:
-                top_est = df_est['Cidade_Limpa'].value_counts().head(5)
-                sns.barplot(x=top_est.values, y=top_est.index, palette="copper")
-                plt.title('Origem dos Estrangeiros (Top 5)', fontsize=14, fontweight='bold')
-                plt.xlabel('Visitantes')
-                plt.ylabel('País/Cidade')
+            if t_est > 0:
+                top_es = df_f[df_f['Estrangeiro']]['Cidade_Limpa'].value_counts().head(5)
+                sns.barplot(x=top_es.values, y=top_es.index, palette="copper")
+                plt.title('Top Países Estrangeiros', fontweight='bold')
             else:
-                plt.text(0.5, 0.5, "Sem registros internacionais\nno período selecionado", 
-                         ha='center', va='center', fontsize=12, color='gray')
+                plt.text(0.5, 0.5, "Sem Estrangeiros no Período", ha='center', va='center', color='gray')
                 plt.axis('off')
 
             st.pyplot(fig)
 
     except Exception as e:
-        st.error(f"🚨 Erro crítico no pipeline de dados: {e}")
+        st.error(f"Erro crítico no processamento: {e}")
 else:
-    st.info("💡 Sugestão: Você pode carregar vários meses de uma vez para ver a evolução histórica.")
+    st.info("💡 Sugestão: Carregue múltiplos arquivos para uma visão consolidada do fluxo.")
