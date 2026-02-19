@@ -52,7 +52,7 @@ CIDADES_REFERENCIA = [
     "Campinas", "São Luís", "Maceió", "Duque de Caxias", "Campo Grande", "Natal", 
     "Teresina", "São Bernardo do Campo", "João Pessoa", "Osasco", "Santo André", 
     "Jaboatão dos Guararapes", "Uberlândia", "Contagem", "Sorocaba", "Ribeirão Preto", 
-    "Aracaju", "Feira de Santana", "Cuiabá", "Joinville", "Aparecida de Goiânia", 
+    "Aracaju", "Feira de Santana", "Joinville", "Aparecida de Goiânia", 
     "Londrina", "Ananindeua", "Porto Velho", "Serra", "Niterói", "Belford Roxo", 
     "Caxias do Sul", "Campos dos Goytacazes", "Macapá", "Florianópolis", "Boa Vista",
     "Rio Branco", "Vitória", "Palmas"
@@ -64,10 +64,11 @@ CIDADES_REFERENCIA = [
 
 @lru_cache(maxsize=1000)
 def fuzzy_match_cidade(nome_sujo):
-    """Etapa 3: Fuzzy Matching contra lista de referência."""
+    """Etapa 3: Fuzzy Matching contra lista de referência (Score 80)."""
     if not nome_sujo: return ""
+    # Utiliza processamento padrão que lida bem com acentos variantes
     result = process.extractOne(nome_sujo, CIDADES_REFERENCIA, processor=utils.default_process)
-    if result and result[1] >= 85:
+    if result and result[1] >= 80: # Score ajustado para 80
         return result[0]
     return nome_sujo.title()
 
@@ -78,14 +79,17 @@ def remover_acentos(texto):
                   if unicodedata.category(c) != 'Mn')
 
 def sanitizar_pipeline(cidade_origem):
-    """Pipeline Triple-Stage Fail-Fast (Expanded LATAM)."""
+    """Pipeline Triple-Stage Otimizado (Regex Vassoura + Fallback com Acento)."""
     if pd.isna(cidade_origem): return "Não Informado", False
     
-    texto_raw = str(cidade_origem).lower().strip()
+    texto_raw = str(cidade_origem).strip() # Mantém Case Original por enquanto
     
     # ---------------------------------------------------------
     # STAGE 1: TRADUTOR DE ESTRANGEIROS (Expansão LATAM)
     # ---------------------------------------------------------
+    # Aplica sobre o texto original (lower) para capturar padrões internacionais
+    texto_lower = texto_raw.lower()
+    
     mapeamento_estrangeiro = {
         r'\b(usa|eua|united states|texas|florida|miami|new york|orlando)\b': "Estados Unidos",
         r'\b(france|franca|paris)\b': "França",
@@ -111,15 +115,40 @@ def sanitizar_pipeline(cidade_origem):
     }
     
     for regex, pais in mapeamento_estrangeiro.items():
-        if re.search(regex, texto_raw):
+        if re.search(regex, texto_lower):
             return pais, True
             
     # ---------------------------------------------------------
-    # STAGE 2: SIGLAS E LIMPEZA LOCAL
+    # STAGE 2: REGEX VASSOURA & LIMPEZA DE PONTUAÇÃO
     # ---------------------------------------------------------
-    c_limpa = remover_acentos(texto_raw)
-    c_limpa = re.sub(r'(\bmt\b|\bbr\b|\bbrasil\b|[-/])', ' ', c_limpa).strip()
-    c_limpa = re.sub(r'\s+', ' ', c_limpa)
+    # Processa o texto mantendo acentos para o fallback final ser bonito
+    # Removemos acentos apenas para validação de siglas, mas reconstruímos a string principal
+    
+    c_limpa = texto_raw # Trabalha com o texto original (com acentos e Case)
+    
+    # 1. Remover siglas de estados (Case Insensitive com boundary)
+    # Lista de UFs do Brasil
+    regex_ufs = r'\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b'
+    c_limpa = re.sub(regex_ufs, ' ', c_limpa, flags=re.IGNORECASE)
+    
+    # 2. Remover termos redundantes
+    regex_lixo = r'\b(brasil|mato grosso|cidade|estado|municipio)\b'
+    c_limpa = re.sub(regex_lixo, ' ', c_limpa, flags=re.IGNORECASE)
+    
+    # 3. Remover Pontuação e Números (Mantém Letras e Espaços)
+    # Nota: [^a-zA-ZÀ-ÿ\s] preserva letras acentuadas comuns em PT-BR
+    c_limpa = re.sub(r'[^a-zA-ZÀ-ÿ\s]', ' ', c_limpa)
+    
+    # 4. Normalização de Espaços
+    c_limpa = re.sub(r'\s+', ' ', c_limpa).strip()
+    
+    # Se sobrou vazio, era lixo total
+    if not c_limpa or len(c_limpa) < 2:
+        return "Não Informado", False
+
+    # 5. Tratamento de Siglas de Cidades Comuns (Ex: CBA, VG)
+    # Aqui removemos acentos temporariamente para comparar fácil
+    c_temp_norm = remover_acentos(c_limpa)
     
     siglas = {
         r'\bcba\b': "Cuiabá",
@@ -133,12 +162,13 @@ def sanitizar_pipeline(cidade_origem):
     }
     
     for sigla_re, nome_oficial in siglas.items():
-        if re.search(sigla_re, c_limpa):
+        if re.search(sigla_re, c_temp_norm):
             return nome_oficial, False
 
     # ---------------------------------------------------------
-    # STAGE 3: FUZZY MATCHING
+    # STAGE 3: FUZZY MATCHING (Score 80)
     # ---------------------------------------------------------
+    # Enviamos a string limpa (com acentos) para o Fuzzy Match
     nome_final = fuzzy_match_cidade(c_limpa)
     return nome_final, False
 
@@ -179,10 +209,13 @@ if uploaded_files:
         # PIPELINE DE TRATAMENTO
         # ==========================================
         
-        # 1. Datas
+        # 1. Datas e Hora
         df_raw['Data_Hora'] = pd.to_datetime(df_raw['Data_Hora'], errors='coerce')
         df = df_raw.dropna(subset=['Data_Hora']).copy()
+        
         df['Data'] = df['Data_Hora'].dt.date
+        df['Hora'] = df['Data_Hora'].dt.hour.fillna(0).astype(int) 
+        
         mapa_dias = {'Monday': 'Segunda', 'Tuesday': 'Terça', 'Wednesday': 'Quarta', 'Thursday': 'Quinta', 'Friday': 'Sexta', 'Saturday': 'Sábado', 'Sunday': 'Domingo'}
         df['Dia_Semana'] = df['Data_Hora'].dt.strftime('%A').map(mapa_dias)
         df['Dia_Semana'] = pd.Categorical(df['Dia_Semana'], categories=list(mapa_dias.values()), ordered=True)
@@ -211,8 +244,21 @@ if uploaded_files:
 
         df['Idade'] = df['Idade'].apply(process_idade)
 
-        # 3. Sanitização 3-Stage
-        with st.spinner("Aplicando Inteligência Geográfica..."):
+        # Faixa Etária
+        def definir_faixa_etaria(idade):
+            if pd.isna(idade): return "Não Informado"
+            if idade <= 12: return "Criança (0-12)"
+            elif idade <= 17: return "Adolescente (13-17)"
+            elif idade <= 35: return "Jovem Adulto (18-35)"
+            elif idade <= 59: return "Adulto (36-59)"
+            else: return "Idoso (60+)"
+
+        df['Faixa_Etaria'] = df['Idade'].apply(definir_faixa_etaria)
+        faixas_ordem = ["Criança (0-12)", "Adolescente (13-17)", "Jovem Adulto (18-35)", "Adulto (36-59)", "Idoso (60+)", "Não Informado"]
+        df['Faixa_Etaria'] = pd.Categorical(df['Faixa_Etaria'], categories=faixas_ordem, ordered=True)
+
+        # 3. Sanitização 3-Stage (Pipeline Novo)
+        with st.spinner("Aplicando Inteligência Geográfica Otimizada..."):
             resultados = df['Cidade_Origem'].apply(sanitizar_pipeline)
             df['Cidade_Limpa'] = [r[0] for r in resultados]
             df['Estrangeiro'] = [r[1] for r in resultados]
@@ -226,7 +272,6 @@ if uploaded_files:
         st.sidebar.header("🔍 Filtros Avançados")
         periodo = st.sidebar.date_input("Intervalo de Datas", [df['Data'].min(), df['Data'].max()])
         
-        # Filtros restaurados
         cidades_sel = st.sidebar.multiselect("Filtrar Cidades", sorted(df['Cidade_Limpa'].unique()))
         grupos_sel = st.sidebar.multiselect("Filtrar Tipo de Grupo", df['Tipo_Grupo'].unique())
         gringos_only = st.sidebar.toggle("Focar Apenas em Estrangeiros")
@@ -235,7 +280,6 @@ if uploaded_files:
         if len(periodo) == 2:
             df_f = df_f[(df_f['Data'] >= periodo[0]) & (df_f['Data'] <= periodo[1])]
         
-        # Aplicação dos filtros restaurados
         if cidades_sel:
             df_f = df_f[df_f['Cidade_Limpa'].isin(cidades_sel)]
         if grupos_sel:
@@ -247,75 +291,131 @@ if uploaded_files:
         if df_f.empty:
             st.warning("Sem dados para os filtros selecionados.")
         else:
-            # KPIs
-            t_ge = int(df_f['Total_Visitantes_Linha'].sum())
-            t_ad = len(df_f)
-            t_cr = int(df_f['Qtd_Criancas'].sum())
-            t_est = int(df_f[df_f['Estrangeiro']]['Total_Visitantes_Linha'].sum())
+            # Conteúdo em Abas
+            tab1, tab2 = st.tabs(["📊 Visão Geral", "🔍 Análise Detalhada"])
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Público Total", f"{t_ge:,}".replace(',','.'))
-            c2.metric("Adultos", f"{t_ad:,}".replace(',','.'))
-            c3.metric("Crianças", f"{t_cr:,}".replace(',','.'))
-            c4.metric("Estrangeiros", f"{t_est:,}".replace(',','.'))
-            
-            st.markdown("---")
-            
-            # BOTÃO DE EXPORTAÇÃO (FILTRADO)
-            csv = df_f.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Baixar Planilha Higienizada (CSV)",
-                data=csv,
-                file_name='visitantes_higienizados.csv',
-                mime='text/csv',
-            )
+            with tab1:
+                # KPIs
+                t_ge = int(df_f['Total_Visitantes_Linha'].sum())
+                t_ad = len(df_f)
+                t_cr = int(df_f['Qtd_Criancas'].sum())
+                t_est = int(df_f[df_f['Estrangeiro']]['Total_Visitantes_Linha'].sum())
 
-            # Gráficos (Matplotlib/Seaborn)
-            sns.set_theme(style="whitegrid")
-            fig = plt.figure(figsize=(22, 14))
-            plt.subplots_adjust(hspace=0.4, wspace=0.3)
-            plt.suptitle('Dashboard Aquário - Análise Inteligente', fontsize=18, fontweight='bold', y=0.98)
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Público Total", f"{t_ge:,}".replace(',','.'))
+                c2.metric("Adultos", f"{t_ad:,}".replace(',','.'))
+                c3.metric("Crianças", f"{t_cr:,}".replace(',','.'))
+                c4.metric("Estrangeiros", f"{t_est:,}".replace(',','.'))
+                
+                st.markdown("---")
+                
+                # BOTÃO DE EXPORTAÇÃO (FILTRADO)
+                csv = df_f.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Baixar Planilha Higienizada (CSV)",
+                    data=csv,
+                    file_name='visitantes_higienizados.csv',
+                    mime='text/csv',
+                )
 
-            # 1. Composição
-            plt.subplot(2, 3, 1)
-            plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#3498db', '#f1c40f'], startangle=90, explode=(0.05, 0))
-            plt.title('Distribuição Adultos vs Crianças', fontweight='bold')
+                sns.set_theme(style="whitegrid")
+                fig = plt.figure(figsize=(22, 14))
+                plt.subplots_adjust(hspace=0.4, wspace=0.3)
+                plt.suptitle('Dashboard Aquário - Análise Inteligente', fontsize=18, fontweight='bold', y=0.98)
 
-            # 2. Perfil
-            plt.subplot(2, 3, 2)
-            df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#e74c3c', '#2ecc71'], startangle=90)
-            plt.title('Perfil dos Visitantes', fontweight='bold')
-            plt.ylabel('')
+                # 1. Composição
+                plt.subplot(2, 3, 1)
+                plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#3498db', '#f1c40f'], startangle=90, explode=(0.05, 0))
+                plt.title('Distribuição Adultos vs Crianças', fontweight='bold')
 
-            # 3. Evolução
-            plt.subplot(2, 3, 3)
-            df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#8e44ad')
-            plt.title('Fluxo de Visitantes no Período', fontweight='bold')
-            plt.xticks(rotation=45)
+                # 2. Perfil
+                plt.subplot(2, 3, 2)
+                df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#e74c3c', '#2ecc71'], startangle=90)
+                plt.title('Perfil dos Visitantes', fontweight='bold')
+                plt.ylabel('')
 
-            # 4. Médias
-            plt.subplot(2, 3, 4)
-            media_op = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum() / df_f.groupby('Dia_Semana')['Data'].nunique()
-            sns.barplot(x=media_op.index, y=media_op.values, palette="rocket")
-            plt.title('Média de Visitantes por Dia', fontweight='bold')
+                # 3. Evolução
+                plt.subplot(2, 3, 3)
+                df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#8e44ad')
+                plt.title('Fluxo de Visitantes no Período', fontweight='bold')
+                plt.xticks(rotation=45)
 
-            # 5. Top Cidades
-            plt.subplot(2, 3, 5)
-            top_10 = df_f['Cidade_Limpa'].value_counts().head(10)
-            sns.barplot(x=top_10.values, y=top_10.index, palette="viridis")
-            plt.title('Top 10 Cidades de Origem', fontweight='bold')
+                # 4. Médias
+                plt.subplot(2, 3, 4)
+                media_op = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum() / df_f.groupby('Dia_Semana')['Data'].nunique()
+                sns.barplot(x=media_op.index, y=media_op.values, palette="rocket")
+                plt.title('Média de Visitantes por Dia', fontweight='bold')
 
-            # 6. Estrangeiros
-            plt.subplot(2, 3, 6)
-            if t_est > 0:
-                top_es = df_f[df_f['Estrangeiro']]['Cidade_Limpa'].value_counts().head(5)
-                sns.barplot(x=top_es.values, y=top_es.index, palette="copper")
-                plt.title('Top Países Estrangeiros', fontweight='bold')
-            else:
-                plt.text(0.5, 0.5, "Sem Estrangeiros no Período", ha='center', va='center', color='gray')
-                plt.axis('off')
+                # 5. Top Cidades
+                plt.subplot(2, 3, 5)
+                top_10 = df_f['Cidade_Limpa'].value_counts().head(10)
+                sns.barplot(x=top_10.values, y=top_10.index, palette="viridis")
+                plt.title('Top 10 Cidades de Origem', fontweight='bold')
 
-            st.pyplot(fig)
+                # 6. Estrangeiros
+                plt.subplot(2, 3, 6)
+                if t_est > 0:
+                    top_es = df_f[df_f['Estrangeiro']]['Cidade_Limpa'].value_counts().head(5)
+                    sns.barplot(x=top_es.values, y=top_es.index, palette="copper")
+                    plt.title('Top Países Estrangeiros', fontweight='bold')
+                else:
+                    plt.text(0.5, 0.5, "Sem Estrangeiros no Período", ha='center', va='center', color='gray')
+                    plt.axis('off')
+
+                st.pyplot(fig)
+
+            with tab2:
+                st.markdown("### 🔍 Inteligência Operacional & Demográfica")
+                
+                # Gráfico 7: Heatmap de Fluxo
+                st.markdown("#### 🔥 Mapa de Calor: Fluxo Operacional (Visitantes)")
+                
+                heatmap_data = df_f.pivot_table(
+                    index='Dia_Semana', 
+                    columns='Hora', 
+                    values='Total_Visitantes_Linha', 
+                    aggfunc='sum',
+                    fill_value=0
+                )
+                
+                heatmap_data = heatmap_data.reindex(list(mapa_dias.values()), fill_value=0)
+                
+                fig7, ax7 = plt.subplots(figsize=(20, 6))
+                sns.heatmap(heatmap_data, cmap="YlOrRd", annot=True, fmt='g', linewidths=.5, ax=ax7)
+                plt.title('Concentração de Visitantes: Dia x Hora', fontweight='bold')
+                plt.xlabel('Hora do Dia')
+                plt.ylabel('Dia da Semana')
+                st.pyplot(fig7)
+                
+                st.markdown("---")
+                
+                col_a, col_b = st.columns(2)
+                
+                with col_a:
+                    st.markdown("#### 👥 Pirâmide Etária dos Visitantes")
+                    
+                    df_idade = df_f[df_f['Faixa_Etaria'] != 'Não Informado'] 
+                    if df_idade.empty:
+                        st.info("Sem dados de idade suficientes.")
+                    else:
+                        fig8, ax8 = plt.subplots(figsize=(10, 6))
+                        sns.countplot(y='Faixa_Etaria', data=df_idade, palette="pastel", ax=ax8)
+                        for container in ax8.containers:
+                            ax8.bar_label(container)
+                        plt.title('Distribuição por Faixa Etária (Declarada)', fontweight='bold')
+                        plt.xlabel('Quantidade de Visitantes')
+                        plt.ylabel('Faixa Etária')
+                        st.pyplot(fig8)
+
+                with col_b:
+                    st.markdown("#### 👨‍👩‍👧‍👦 Distribuição de Tamanho de Grupos")
+                    
+                    fig9, ax9 = plt.subplots(figsize=(10, 6))
+                    sns.histplot(data=df_f, x='Total_Visitantes_Linha', discrete=True, color="teal", kde=True, ax=ax9)
+                    plt.title('Frequência por Tamanho do Grupo', fontweight='bold')
+                    plt.xlabel('Pessoas no Grupo')
+                    plt.ylabel('Frequência (Entradas)')
+                    st.pyplot(fig9)
 
     except Exception as e:
         st.error(f"🚨 Erro no processamento: {e}")
