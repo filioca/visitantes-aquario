@@ -9,7 +9,7 @@ from rapidfuzz import process, utils
 from functools import lru_cache
 
 # ==========================================
-# CONFIGURAÇÃO E ESTILO (UI UX PRO MAX)
+# CONFIGURAÇÃO E ESTILO (UI UX PRO MAX - DARK MODE)
 # ==========================================
 st.set_page_config(
     page_title="SIT - Sistema de Inteligência Turística",
@@ -17,38 +17,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Paleta de Cores Institucional (Cuiabá Premium - Civic Blue & Gold)
-# Primary: #003366 (Civic Blue)
-# Accent: #C5A059 (Metallic Gold)
-# Background: #F3F4F6 (Cool Gray)
-# Text: #1F2937 (Slate 800)
+# Paleta de Cores "Civic Dark" (Premium Government Analytics)
+# Background: #0B0E14 (Midnight Deep)
+# Surface (Cards): #161B22 (Slate 900)
+# Primary: #1D4ED8 (Royal Blue)
+# Accent: #EAB308 (Authority Gold)
+# Text Primary: #F9FAFB (White Smoke)
+# Text Secondary: #9CA3AF (Gray 400)
 
 st.markdown("""
     <style>
     /* Global Font & Background */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
-        color: #1F2937;
+        color: #F9FAFB;
     }
     
     .stApp {
-        background-color: #F3F4F6;
+        background-color: #0B0E14;
     }
 
-    /* Header Container */
+    /* Header Container - Dark Mode */
     .header-container {
-        background: linear-gradient(135deg, #003366 0%, #004080 100%);
-        padding: 2rem 2rem;
+        background: linear-gradient(135deg, #001F3F 0%, #08111B 100%);
+        padding: 2.5rem 2rem;
         border-radius: 12px;
-        color: white;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        color: #F9FAFB;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         margin-bottom: 2rem;
+        border-left: 5px solid #EAB308;
     }
     
     .header-title {
-        font-size: 2.2rem;
+        font-size: 2.22rem;
         font-weight: 700;
         margin: 0;
         letter-spacing: -0.025em;
@@ -56,109 +59,121 @@ st.markdown("""
     }
     
     .header-subtitle {
-        font-size: 1rem;
+        font-size: 1.05rem;
         font-weight: 400;
-        opacity: 0.9;
+        opacity: 0.8;
         margin-top: 0.5rem;
-        color: #E5E7EB !important;
+        color: #9CA3AF !important;
     }
 
-    /* Metric Cards */
+    /* Metric Cards - Modern Slate Dark */
     div[data-testid="stMetric"] {
-        background-color: #ffffff;
+        background-color: #161B22;
         padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid #E5E7EB;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-        transition: transform 0.2s;
+        border-radius: 12px;
+        border: 1px solid #30363D;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s ease-in-out;
     }
     
     div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        border-color: #C5A059;
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+        border-color: #EAB308;
     }
 
     div[data-testid="stMetricLabel"] {
-        font-size: 0.875rem;
-        color: #6B7280;
-        font-weight: 500;
+        font-size: 0.88rem;
+        color: #9CA3AF;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
     }
 
     div[data-testid="stMetricValue"] {
-        font-size: 1.8rem;
+        font-size: 2.1rem;
         font-weight: 700;
-        color: #003366;
+        color: #F9FAFB;
     }
 
-    /* Tabs Styling */
+    /* Tabs Styling - Dark */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
         background-color: transparent;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #E5E7EB;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #30363D;
     }
 
     .stTabs [data-baseweb="tab"] {
-        height: 3rem;
-        white-space: pre-wrap;
+        height: 3.5rem;
         background-color: transparent;
-        border-radius: 4px;
-        color: #6B7280;
-        font-weight: 600;
+        color: #9CA3AF;
+        font-weight: 500;
         font-size: 1rem;
-        padding: 0 1rem;
         border: none;
+        transition: color 0.2s;
     }
 
     .stTabs [aria-selected="true"] {
-        color: #003366;
-        border-bottom: 3px solid #C5A059; /* Gold accent */
-        background-color: rgba(197, 160, 89, 0.05);
+        color: #EAB308 !important;
+        border-bottom: 3px solid #EAB308 !important;
+        font-weight: 700;
     }
 
-    /* Button Styling */
+    /* Button Styling - Authority Blue */
     .stDownloadButton button {
-        background-color: #003366 !important;
+        background-color: #1D4ED8 !important;
         color: white !important;
         border: none !important;
-        padding: 0.6rem 1.5rem !important;
-        border-radius: 6px !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        transition: background-color 0.2s;
+        width: 100%;
+        margin-bottom: 1.5rem;
+        transition: filter 0.2s;
     }
     
     .stDownloadButton button:hover {
-        background-color: #002244 !important;
+        filter: brightness(1.2);
     }
 
-    /* Sidebar Styling */
+    /* Sidebar Styling - Darker */
     section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #E5E7EB;
+        background-color: #0D1117;
+        border-right: 1px solid #30363D;
     }
     
     .sidebar-header {
-        font-size: 1.1rem;
+        font-size: 1.2rem;
         font-weight: 700;
-        color: #111827;
-        margin-bottom: 1rem;
+        color: #F9FAFB;
+        margin-bottom: 1.5rem;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid #C5A059;
-        display: inline-block;
+        border-bottom: 2px solid #EAB308;
+        display: block;
+    }
+
+    /* Adjusting Inputs for Dark Mode visibility */
+    .stMultiSelect, .stDateInput, .stFileUploader {
+        color: #F9FAFB;
+    }
+    
+    /* Fixing Legend/Text color in some containers */
+    label, p, span {
+        color: #D1D5DB !important;
+    }
+    h1, h2, h3, h4 {
+        color: #F9FAFB !important;
     }
 
     </style>
     """, unsafe_allow_html=True)
 
-# Header Institucional
+# Header Institucional Dark
 st.markdown("""
     <div class="header-container">
         <h1 class="header-title">🏛️ SIT - Sistema de Inteligência Turística</h1>
-        <p class="header-subtitle">Prefeitura Municipal de Cuiabá • Secretaria de Turismo • Gestão de Dados</p>
+        <p class="header-subtitle">Prefeitura Municipal de Cuiabá • Secretaria de Turismo • Núcleo de Analytics</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -193,7 +208,6 @@ CIDADES_REFERENCIA = [
 
 @lru_cache(maxsize=1000)
 def fuzzy_match_cidade(nome_sujo):
-    """Etapa 3: Fuzzy Matching contra lista de referência (Score 80)."""
     if not nome_sujo: return ""
     result = process.extractOne(nome_sujo, CIDADES_REFERENCIA, processor=utils.default_process)
     if result and result[1] >= 80:
@@ -207,13 +221,12 @@ def remover_acentos(texto):
                   if unicodedata.category(c) != 'Mn')
 
 def sanitizar_pipeline(cidade_origem):
-    """Pipeline Triple-Stage Otimizado (Regex Vassoura + Fallback com Acento)."""
     if pd.isna(cidade_origem): return "Não Informado", False
     
     texto_raw = str(cidade_origem).strip()
     texto_lower = texto_raw.lower()
     
-    # STAGE 1: TRADUTOR DE ESTRANGEIROS (Expansão LATAM)
+    # STAGE 1: TRADUTOR DE ESTRANGEIROS
     mapeamento_estrangeiro = {
         r'\b(usa|eua|united states|texas|florida|miami|new york|orlando)\b': "Estados Unidos",
         r'\b(france|franca|paris)\b': "França",
@@ -256,14 +269,8 @@ def sanitizar_pipeline(cidade_origem):
 
     c_temp_norm = remover_acentos(c_limpa)
     siglas = {
-        r'\bcba\b': "Cuiabá",
-        r'\bvg\b': "Várzea Grande",
-        r'\bsp\b': "São Paulo",
-        r'\bbh\b': "Belo Horizonte",
-        r'\brj\b': "Rio de Janeiro",
-        r'\bcgr\b': "Campo Grande",
-        r'\bcur\b': "Curitiba",
-        r'\bgyn\b': "Goiânia"
+        r'\bcba\b': "Cuiabá", r'\bvg\b': "Várzea Grande", r'\bsp\b': "São Paulo", r'\bbh\b': "Belo Horizonte",
+        r'\brj\b': "Rio de Janeiro", r'\bcgr\b': "Campo Grande", r'\bcur\b': "Curitiba", r'\bgyn\b': "Goiânia"
     }
     
     for sigla_re, nome_oficial in siglas.items():
@@ -271,8 +278,7 @@ def sanitizar_pipeline(cidade_origem):
             return nome_oficial, False
 
     # STAGE 3: FUZZY MATCHING
-    nome_final = fuzzy_match_cidade(c_limpa)
-    return nome_final, False
+    return fuzzy_match_cidade(c_limpa), False
 
 # ==========================================
 # UPLOAD E CARREGAMENTO
@@ -281,7 +287,7 @@ uploaded_files = st.sidebar.file_uploader(
     "📂 Importar Dados (XLSX/CSV)", 
     type=['xlsx', 'csv'], 
     accept_multiple_files=True,
-    help="Carregue as planilhas de cadastro de visitantes para iniciar o processamento."
+    help="Carregue as planilhas para iniciar o processamento."
 )
 
 if uploaded_files:
@@ -308,9 +314,7 @@ if uploaded_files:
     df_raw = pd.concat(dataframes, ignore_index=True)
 
     try:
-        # ==========================================
         # PIPELINE DE TRATAMENTO
-        # ==========================================
         df_raw['Data_Hora'] = pd.to_datetime(df_raw['Data_Hora'], errors='coerce')
         df = df_raw.dropna(subset=['Data_Hora']).copy()
         
@@ -356,7 +360,7 @@ if uploaded_files:
         faixas_ordem = ["Criança (0-12)", "Adolescente (13-17)", "Jovem Adulto (18-35)", "Adulto (36-59)", "Idoso (60+)", "Não Informado"]
         df['Faixa_Etaria'] = pd.Categorical(df['Faixa_Etaria'], categories=faixas_ordem, ordered=True)
 
-        with st.spinner("Processando Inteligência de Dados..."):
+        with st.spinner("Processando..."):
             resultados = df['Cidade_Origem'].apply(sanitizar_pipeline)
             df['Cidade_Limpa'] = [r[0] for r in resultados]
             df['Estrangeiro'] = [r[1] for r in resultados]
@@ -364,36 +368,26 @@ if uploaded_files:
         df['Total_Visitantes_Linha'] = 1 + df['Qtd_Criancas']
         df['Tipo_Grupo'] = df['Qtd_Criancas'].apply(lambda x: 'Família/Grupo' if x > 0 else 'Individual/Adultos')
 
-        # ==========================================
-        # INTERFACE E FILTROS
-        # ==========================================
+        # FILTROS LATERAIS
         st.sidebar.markdown('<div class="sidebar-header">🛠️ Painel de Controle</div>', unsafe_allow_html=True)
-        
         periodo = st.sidebar.date_input("📅 Período de Análise", [df['Data'].min(), df['Data'].max()])
-        cidades_sel = st.sidebar.multiselect("📍 Filtrar Origem (Cidades)", sorted(df['Cidade_Limpa'].unique()))
-        grupos_sel = st.sidebar.multiselect("👥 Tipologia de Grupo", df['Tipo_Grupo'].unique())
-        gringos_only = st.sidebar.toggle("🌐 Apenas Visitantes Internacionais")
+        cidades_sel = st.sidebar.multiselect("📍 Origens Específicas", sorted(df['Cidade_Limpa'].unique()))
+        grupos_sel = st.sidebar.multiselect("👥 Tipologia", df['Tipo_Grupo'].unique())
+        gringos_only = st.sidebar.toggle("🌐 Apenas Estrangeiros")
 
         df_f = df.copy()
         if len(periodo) == 2:
             df_f = df_f[(df_f['Data'] >= periodo[0]) & (df_f['Data'] <= periodo[1])]
-        
-        if cidades_sel:
-            df_f = df_f[df_f['Cidade_Limpa'].isin(cidades_sel)]
-        if grupos_sel:
-            df_f = df_f[df_f['Tipo_Grupo'].isin(grupos_sel)]
-            
-        if gringos_only:
-            df_f = df_f[df_f['Estrangeiro']]
+        if cidades_sel: df_f = df_f[df_f['Cidade_Limpa'].isin(cidades_sel)]
+        if grupos_sel: df_f = df_f[df_f['Tipo_Grupo'].isin(grupos_sel)]
+        if gringos_only: df_f = df_f[df_f['Estrangeiro']]
 
         if df_f.empty:
-            st.warning("⚠️ Nenhum registro encontrado para os filtros aplicados.")
+            st.warning("⚠️ Sem dados para estes filtros.")
         else:
-            # TABS PROFISSIONAIS
-            tab1, tab2 = st.tabs(["📊 Visão Estratégica", "🔍 Análise Tática & Demográfica"])
+            tab1, tab2 = st.tabs(["📊 Visão Estratégica", "🔍 Análise Tática"])
 
             with tab1:
-                # KPIs
                 t_ge = int(df_f['Total_Visitantes_Linha'].sum())
                 t_ad = len(df_f)
                 t_cr = int(df_f['Qtd_Criancas'].sum())
@@ -403,144 +397,99 @@ if uploaded_files:
                 c1.metric("Fluxo Total", f"{t_ge:,}".replace(',','.'))
                 c2.metric("Público Adulto", f"{t_ad:,}".replace(',','.'))
                 c3.metric("Público Infantil", f"{t_cr:,}".replace(',','.'))
-                c4.metric("Turistas Internacionais", f"{t_est:,}".replace(',','.'))
-                
-                st.markdown("---")
+                c4.metric("Internacionais", f"{t_est:,}".replace(',','.'))
                 
                 # BOTÃO DE EXPORTAÇÃO
                 csv = df_f.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Exportar Dados Processados (.CSV)",
-                    data=csv,
-                    file_name='SIT_Visitantes_Processados.csv',
-                    mime='text/csv',
-                )
+                st.download_button("📥 Exportar Planilha Processada (.CSV)", data=csv, file_name='SIT_Visitantes.csv', mime='text/csv')
 
-                # Gráficos (Visual Clean e Corporativo)
-                # Configurando paleta corporativa para Matplotlib
-                plt.rcParams['font.family'] = 'sans-serif'
-                plt.rcParams['text.color'] = '#1F2937'
-                plt.rcParams['axes.labelcolor'] = '#4B5563'
-                plt.rcParams['xtick.color'] = '#4B5563'
-                plt.rcParams['ytick.color'] = '#4B5563'
+                # Gráficos em Dark Mode
+                # Configuração Global de Visualização Dark
+                plt.style.use('dark_background')
+                plt.rcParams['figure.facecolor'] = '#161B22'
+                plt.rcParams['axes.facecolor'] = '#161B22'
+                plt.rcParams['text.color'] = '#F9FAFB'
+                plt.rcParams['axes.labelcolor'] = '#9CA3AF'
+                plt.rcParams['xtick.color'] = '#9CA3AF'
+                plt.rcParams['ytick.color'] = '#9CA3AF'
+                plt.rcParams['grid.color'] = '#30363D'
                 
-                sns.set_theme(style="whitegrid", rc={"axes.facecolor": ".98", "grid.color": ".90"})
+                sns.set_theme(style="dark", palette="muted")
+                
                 fig = plt.figure(figsize=(22, 14))
                 plt.subplots_adjust(hspace=0.4, wspace=0.3)
-                
-                # Título discreto removido pois já está no header do app
-                # plt.suptitle('Indicadores Estratégicos', fontsize=16, fontweight='bold', y=0.98, color='#003366')
 
                 # 1. Composição
                 plt.subplot(2, 3, 1)
-                # Cores: Civic Blue e Muted Gold
-                plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#003366', '#C5A059'], startangle=90, explode=(0.05, 0), textprops={'fontsize': 11})
-                plt.title('Segmentação Etária Macro', fontweight='bold', color='#111827')
+                plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#1D4ED8', '#EAB308'], startangle=90, explode=(0.05, 0))
+                plt.title('Segmentação Etária', fontweight='bold')
 
                 # 2. Perfil
                 plt.subplot(2, 3, 2)
-                # Cores: Deep Teal e Slate Blue
-                df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#0D9488', '#475569'], startangle=90, textprops={'fontsize': 11})
-                plt.title('Tipologia dos Visitantes', fontweight='bold', color='#111827')
+                df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#10B981', '#6366F1'], startangle=90)
+                plt.title('Tipologia dos Visitantes', fontweight='bold')
                 plt.ylabel('')
 
                 # 3. Evolução
                 plt.subplot(2, 3, 3)
-                # Cor: Civic Blue
-                df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#003366', linewidth=2)
-                plt.title('Tendência de Fluxo Diário', fontweight='bold', color='#111827')
-                plt.xlabel('')
-                plt.xticks(rotation=45)
-                plt.grid(axis='y', linestyle='--', alpha=0.7)
+                df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#EAB308', linewidth=2.5)
+                plt.title('Tendência Diária', fontweight='bold')
+                plt.grid(True, alpha=0.1)
 
                 # 4. Médias
                 plt.subplot(2, 3, 4)
                 media_op = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum() / df_f.groupby('Dia_Semana')['Data'].nunique()
-                # Palette customizada Blue -> Gold
-                sns.barplot(x=media_op.index, y=media_op.values, palette="ch:s=.25,rot=-.25")
-                plt.title('Média de Fluxo Semanal', fontweight='bold', color='#111827')
-                plt.xlabel('')
-                plt.ylabel('Média de Visitantes')
+                sns.barplot(x=media_op.index, y=media_op.values, palette="rocket")
+                plt.title('Média por Dia da Semana', fontweight='bold')
 
                 # 5. Top Cidades
                 plt.subplot(2, 3, 5)
                 top_10 = df_f['Cidade_Limpa'].value_counts().head(10)
                 sns.barplot(x=top_10.values, y=top_10.index, palette="mako")
-                plt.title('Top 10 Origens (Nacional)', fontweight='bold', color='#111827')
-                plt.xlabel('Volume de Visitantes')
+                plt.title('Top 10 Municípios de Origem', fontweight='bold')
 
                 # 6. Estrangeiros
                 plt.subplot(2, 3, 6)
                 if t_est > 0:
                     top_es = df_f[df_f['Estrangeiro']]['Cidade_Limpa'].value_counts().head(5)
-                    sns.barplot(x=top_es.values, y=top_es.index, palette="copper")
-                    plt.title('Top Origens (Internacional)', fontweight='bold', color='#111827')
+                    sns.barplot(x=top_es.values, y=top_es.index, palette="flare")
+                    plt.title('Origens Internacionais', fontweight='bold')
                 else:
-                    plt.text(0.5, 0.5, "Sem dados internacionais no período", ha='center', va='center', color='#9CA3AF', fontsize=12)
+                    plt.text(0.5, 0.5, "Sem registros internacionais", ha='center', va='center', color='#4B5563')
                     plt.axis('off')
 
                 st.pyplot(fig)
 
             with tab2:
-                st.markdown("### ⏲️ Análise Operacional e Demográfica")
+                st.markdown("### ⏲️ Inteligência Operacional Dark")
                 
-                # Gráfico 7: Heatmap de Fluxo
-                st.markdown("#### Matriz de Calor: Intensidade Operacional (Dia x Hora)")
-                
-                heatmap_data = df_f.pivot_table(
-                    index='Dia_Semana', 
-                    columns='Hora', 
-                    values='Total_Visitantes_Linha', 
-                    aggfunc='sum',
-                    fill_value=0
-                )
-                
+                heatmap_data = df_f.pivot_table(index='Dia_Semana', columns='Hora', values='Total_Visitantes_Linha', aggfunc='sum', fill_value=0)
                 heatmap_data = heatmap_data.reindex(list(mapa_dias.values()), fill_value=0)
                 
                 fig7, ax7 = plt.subplots(figsize=(20, 6))
-                # Palette: Blues (mais institucional)
-                sns.heatmap(heatmap_data, cmap="Blues", annot=True, fmt='g', linewidths=.5, ax=ax7, cbar_kws={'label': 'Volume de Visitantes'})
-                plt.title('Mapa de Calor Operacional', fontweight='bold', color='#111827')
-                plt.xlabel('Hora do Dia', fontweight='500')
-                plt.ylabel('Dia da Semana', fontweight='500')
+                # Heatmap Dark Mode: Magma ou Inferno scale funciona melhor no escuro
+                sns.heatmap(heatmap_data, cmap="inferno", annot=True, fmt='g', linewidths=.5, ax=ax7)
+                plt.title('Matriz de Calor Operacional', fontweight='bold')
                 st.pyplot(fig7)
                 
                 st.markdown("---")
                 
-                col_a, col_b = st.columns(2)
-                
-                with col_a:
-                    st.markdown("#### Pirâmide Etária")
-                    
+                cola, colb = st.columns(2)
+                with cola:
                     df_idade = df_f[df_f['Faixa_Etaria'] != 'Não Informado'] 
-                    if df_idade.empty:
-                        st.info("Insuficiência de dados etários para plotagem.")
-                    else:
+                    if not df_idade.empty:
                         fig8, ax8 = plt.subplots(figsize=(10, 6))
-                        # Palette discreta
-                        sns.countplot(y='Faixa_Etaria', data=df_idade, palette="GnBu_d", ax=ax8)
-                        for container in ax8.containers:
-                            ax8.bar_label(container, padding=5)
-                        plt.title('Distribuição Etária Declarada', fontweight='bold')
-                        plt.xlabel('Quantidade')
-                        plt.ylabel('')
-                        # Remover bordas desnecessárias
-                        sns.despine(left=True, bottom=True)
+                        sns.countplot(y='Faixa_Etaria', data=df_idade, palette="viridis", ax=ax8)
+                        for container in ax8.containers: ax8.bar_label(container, padding=5)
+                        plt.title('Demografia Detalhada', fontweight='bold')
                         st.pyplot(fig8)
-
-                with col_b:
-                    st.markdown("#### Comportamento de Grupos")
-                    
+                with colb:
                     fig9, ax9 = plt.subplots(figsize=(10, 6))
-                    sns.histplot(data=df_f, x='Total_Visitantes_Linha', discrete=True, color="#003366", kde=True, ax=ax9, alpha=0.7)
-                    plt.title('Histograma de Dimensionamento de Grupos', fontweight='bold')
-                    plt.xlabel('Nº de Pessoas por Grupo')
-                    plt.ylabel('Ocorrências')
-                    sns.despine()
+                    sns.histplot(data=df_f, x='Total_Visitantes_Linha', discrete=True, color="#1D4ED8", kde=True, ax=ax9, alpha=0.6)
+                    plt.title('Distribuição de Tamanho de Grupo', fontweight='bold')
                     st.pyplot(fig9)
 
     except Exception as e:
-        st.error(f"🚨 Erro crítico no processamento de dados: {e}")
+        st.error(f"🚨 Erro no processamento: {e}")
 else:
-    # Empty State Profissional
-    st.info("⚠️ Aguardando importação de dados. Utilize o painel lateral para carregar os arquivos .CSV ou .XLSX do sistema de cadastro.")
+    st.info("⚠️ Aguardando carregamento de arquivos na barra lateral.")
