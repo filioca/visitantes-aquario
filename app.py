@@ -22,11 +22,16 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+    .stDownloadButton {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🐠 Dashboard Gerencial - Aquário Municipal")
-st.markdown("### Processamento de Dados com Inteligência Geográfica (3-Stage Sanitization)")
+st.markdown("### Processamento Consolidado & Inteligência Geográfica")
 
 # ==========================================
 # LISTA DE REFERÊNCIA (MT + CAPITAIS)
@@ -73,27 +78,33 @@ def remover_acentos(texto):
                   if unicodedata.category(c) != 'Mn')
 
 def sanitizar_pipeline(cidade_origem):
-    """Pipeline Triple-Stage Fail-Fast."""
+    """Pipeline Triple-Stage Fail-Fast (Expanded LATAM)."""
     if pd.isna(cidade_origem): return "Não Informado", False
     
     texto_raw = str(cidade_origem).lower().strip()
     
     # ---------------------------------------------------------
-    # STAGE 1: TRADUTOR DE ESTRANGEIROS
+    # STAGE 1: TRADUTOR DE ESTRANGEIROS (Expansão LATAM)
     # ---------------------------------------------------------
     mapeamento_estrangeiro = {
-        r'\b(usa|eua|united states|texas|florida|miami|new york)\b': "Estados Unidos",
+        r'\b(usa|eua|united states|texas|florida|miami|new york|orlando)\b': "Estados Unidos",
         r'\b(france|franca|paris)\b': "França",
         r'\b(belgium|belgica|brussels|bruxelas)\b': "Bélgica",
         r'\b(czech|tcheca|prague)\b': "República Tcheca",
         r'\b(argentina|buenos aires|cordoba|rosario)\b': "Argentina",
-        r'\b(bolivia|la paz|santa cruz)\b': "Bolívia",
+        r'\b(bolivia|la paz|santa cruz|sucre)\b': "Bolívia",
         r'\b(paraguay|paraguai|asuncion|assuncao)\b': "Paraguai",
-        r'\b(chile|santiago)\b': "Chile",
+        r'\b(chile|santiago|valparaiso)\b': "Chile",
+        r'\b(uruguay|uruguai|montevideo|punta del este)\b': "Uruguai",
+        r'\b(colombia|bogota|medellin|cartagena)\b': "Colômbia",
+        r'\b(peru|lima|cusco|machu picchu)\b': "Peru",
+        r'\b(venezuela|caracas|maracaibo)\b': "Venezuela",
+        r'\b(ecuador|equador|quito|guayaquil)\b': "Equador",
+        r'\b(mexico|cancun|mexico city)\b': "México",
         r'\b(portugal|lisboa|porto)\b': "Portugal",
         r'\b(spain|espanha|madrid|barcelona)\b': "Espanha",
-        r'\b(italy|italia|rome|roma)\b': "Itália",
-        r'\b(germany|alemanha|berlin)\b': "Alemanha",
+        r'\b(italy|italia|rome|roma|milano)\b': "Itália",
+        r'\b(germany|alemanha|berlin|munich)\b': "Alemanha",
         r'\b(japan|japao|tokyo|toquio)\b': "Japão",
         r'\b(china|beijing|shanghai)\b': "China",
         r'\b(uk|reino unido|london|londres|england|inglaterra)\b': "Reino Unido"
@@ -106,12 +117,10 @@ def sanitizar_pipeline(cidade_origem):
     # ---------------------------------------------------------
     # STAGE 2: SIGLAS E LIMPEZA LOCAL
     # ---------------------------------------------------------
-    # Limpeza básica (acentos, sufixos)
     c_limpa = remover_acentos(texto_raw)
     c_limpa = re.sub(r'(\bmt\b|\bbr\b|\bbrasil\b|[-/])', ' ', c_limpa).strip()
-    c_limpa = re.sub(r'\s+', ' ', c_limpa) # Remove espaços duplos
+    c_limpa = re.sub(r'\s+', ' ', c_limpa)
     
-    # Siglas diretas
     siglas = {
         r'\bcba\b': "Cuiabá",
         r'\bvg\b': "Várzea Grande",
@@ -128,7 +137,7 @@ def sanitizar_pipeline(cidade_origem):
             return nome_oficial, False
 
     # ---------------------------------------------------------
-    # STAGE 3: FUZZY MATCHING (MT + CAPITAIS)
+    # STAGE 3: FUZZY MATCHING
     # ---------------------------------------------------------
     nome_final = fuzzy_match_cidade(c_limpa)
     return nome_final, False
@@ -178,7 +187,7 @@ if uploaded_files:
         df['Dia_Semana'] = df['Data_Hora'].dt.strftime('%A').map(mapa_dias)
         df['Dia_Semana'] = pd.Categorical(df['Dia_Semana'], categories=list(mapa_dias.values()), ordered=True)
 
-        # 2. Sanitização Numérica (Qtd_Criancas)
+        # 2. Sanitização Numérica
         def process_criancas(val):
             if pd.isna(val): return 0
             s = str(val).lower().strip()
@@ -188,12 +197,10 @@ if uploaded_files:
 
         df['Qtd_Criancas'] = df['Qtd_Criancas'].apply(process_criancas)
         
-        # Limite de Excursão
         lim_exc = 40
         med_cr = df[df['Qtd_Criancas'] <= lim_exc]['Qtd_Criancas'].mean()
         df.loc[df['Qtd_Criancas'] > lim_exc, 'Qtd_Criancas'] = int(round(med_cr)) if not np.isnan(med_cr) else 0
 
-        # 3. Sanitização Numérica (Idade)
         def process_idade(val):
             if pd.isna(val): return np.nan
             match = re.search(r'(\d+)', str(val))
@@ -204,8 +211,8 @@ if uploaded_files:
 
         df['Idade'] = df['Idade'].apply(process_idade)
 
-        # 4. Sanitização de Cidades (3-Stage)
-        with st.spinner("Processando Inteligência Geográfica..."):
+        # 3. Sanitização 3-Stage
+        with st.spinner("Aplicando Inteligência Geográfica..."):
             resultados = df['Cidade_Origem'].apply(sanitizar_pipeline)
             df['Cidade_Limpa'] = [r[0] for r in resultados]
             df['Estrangeiro'] = [r[1] for r in resultados]
@@ -217,8 +224,8 @@ if uploaded_files:
         # INTERFACE E FILTROS
         # ==========================================
         st.sidebar.header("🔍 Filtros Avançados")
-        periodo = st.sidebar.date_input("Intervalo", [df['Data'].min(), df['Data'].max()])
-        gringos_only = st.sidebar.toggle("Focar Estrangeiros")
+        periodo = st.sidebar.date_input("Intervalo de Datas", [df['Data'].min(), df['Data'].max()])
+        gringos_only = st.sidebar.toggle("Focar Apenas em Estrangeiros")
 
         df_f = df.copy()
         if len(periodo) == 2:
@@ -230,9 +237,9 @@ if uploaded_files:
             st.warning("Sem dados para os filtros selecionados.")
         else:
             # KPIs
+            t_ge = int(df_f['Total_Visitantes_Linha'].sum())
             t_ad = len(df_f)
             t_cr = int(df_f['Qtd_Criancas'].sum())
-            t_ge = t_ad + t_cr
             t_est = int(df_f[df_f['Estrangeiro']]['Total_Visitantes_Linha'].sum())
 
             c1, c2, c3, c4 = st.columns(4)
@@ -240,7 +247,17 @@ if uploaded_files:
             c2.metric("Adultos", f"{t_ad:,}".replace(',','.'))
             c3.metric("Crianças", f"{t_cr:,}".replace(',','.'))
             c4.metric("Estrangeiros", f"{t_est:,}".replace(',','.'))
+            
             st.markdown("---")
+            
+            # BOTÃO DE EXPORTAÇÃO (FILTRADO)
+            csv = df_f.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Baixar Planilha Higienizada (CSV)",
+                data=csv,
+                file_name='visitantes_higienizados.csv',
+                mime='text/csv',
+            )
 
             # Gráficos (Matplotlib/Seaborn)
             sns.set_theme(style="whitegrid")
@@ -259,19 +276,19 @@ if uploaded_files:
             plt.title('Perfil dos Visitantes', fontweight='bold')
             plt.ylabel('')
 
-            # 3. Evolução Diária
+            # 3. Evolução
             plt.subplot(2, 3, 3)
             df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#8e44ad')
-            plt.title('Fluxo de Pessoas', fontweight='bold')
+            plt.title('Fluxo de Visitantes no Período', fontweight='bold')
             plt.xticks(rotation=45)
 
-            # 4. Médias Operacionais
+            # 4. Médias
             plt.subplot(2, 3, 4)
             media_op = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum() / df_f.groupby('Dia_Semana')['Data'].nunique()
             sns.barplot(x=media_op.index, y=media_op.values, palette="rocket")
             plt.title('Média de Visitantes por Dia', fontweight='bold')
 
-            # 5. Top Origens (Sanitizado)
+            # 5. Top Cidades
             plt.subplot(2, 3, 5)
             top_10 = df_f['Cidade_Limpa'].value_counts().head(10)
             sns.barplot(x=top_10.values, y=top_10.index, palette="viridis")
@@ -290,6 +307,6 @@ if uploaded_files:
             st.pyplot(fig)
 
     except Exception as e:
-        st.error(f"Erro crítico no processamento: {e}")
+        st.error(f"🚨 Erro no processamento: {e}")
 else:
-    st.info("💡 Sugestão: Carregue múltiplos arquivos para uma visão consolidada do fluxo.")
+    st.info("💡 Carregue os arquivos para consolidar a análise e liberar a exportação.")
