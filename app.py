@@ -9,29 +9,158 @@ from rapidfuzz import process, utils
 from functools import lru_cache
 
 # ==========================================
-# CONFIGURAÇÃO E ESTILO
+# CONFIGURAÇÃO E ESTILO (UI UX PRO MAX)
 # ==========================================
-st.set_page_config(page_title="Dashboard Aquário Pro+", layout="wide")
+st.set_page_config(
+    page_title="SIT - Sistema de Inteligência Turística",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Paleta de Cores Institucional (Cuiabá Premium - Civic Blue & Gold)
+# Primary: #003366 (Civic Blue)
+# Accent: #C5A059 (Metallic Gold)
+# Background: #F3F4F6 (Cool Gray)
+# Text: #1F2937 (Slate 800)
 
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric {
+    /* Global Font & Background */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        color: #1F2937;
+    }
+    
+    .stApp {
+        background-color: #F3F4F6;
+    }
+
+    /* Header Container */
+    .header-container {
+        background: linear-gradient(135deg, #003366 0%, #004080 100%);
+        padding: 2rem 2rem;
+        border-radius: 12px;
+        color: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin-bottom: 2rem;
+    }
+    
+    .header-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.025em;
+        color: #ffffff !important;
+    }
+    
+    .header-subtitle {
+        font-size: 1rem;
+        font-weight: 400;
+        opacity: 0.9;
+        margin-top: 0.5rem;
+        color: #E5E7EB !important;
+    }
+
+    /* Metric Cards */
+    div[data-testid="stMetric"] {
         background-color: #ffffff;
-        padding: 15px;
+        padding: 1.5rem;
         border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #E5E7EB;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        transition: transform 0.2s;
     }
-    .stDownloadButton {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
+    
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        border-color: #C5A059;
     }
+
+    div[data-testid="stMetricLabel"] {
+        font-size: 0.875rem;
+        color: #6B7280;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    div[data-testid="stMetricValue"] {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #003366;
+    }
+
+    /* Tabs Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: transparent;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #E5E7EB;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 3rem;
+        white-space: pre-wrap;
+        background-color: transparent;
+        border-radius: 4px;
+        color: #6B7280;
+        font-weight: 600;
+        font-size: 1rem;
+        padding: 0 1rem;
+        border: none;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #003366;
+        border-bottom: 3px solid #C5A059; /* Gold accent */
+        background-color: rgba(197, 160, 89, 0.05);
+    }
+
+    /* Button Styling */
+    .stDownloadButton button {
+        background-color: #003366 !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.6rem 1.5rem !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.2s;
+    }
+    
+    .stDownloadButton button:hover {
+        background-color: #002244 !important;
+    }
+
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #E5E7EB;
+    }
+    
+    .sidebar-header {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #C5A059;
+        display: inline-block;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🐠 Dashboard Gerencial - Aquário Municipal")
-st.markdown("### Processamento Consolidado & Inteligência Geográfica")
+# Header Institucional
+st.markdown("""
+    <div class="header-container">
+        <h1 class="header-title">🏛️ SIT - Sistema de Inteligência Turística</h1>
+        <p class="header-subtitle">Prefeitura Municipal de Cuiabá • Secretaria de Turismo • Gestão de Dados</p>
+    </div>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # LISTA DE REFERÊNCIA (MT + CAPITAIS)
@@ -66,9 +195,8 @@ CIDADES_REFERENCIA = [
 def fuzzy_match_cidade(nome_sujo):
     """Etapa 3: Fuzzy Matching contra lista de referência (Score 80)."""
     if not nome_sujo: return ""
-    # Utiliza processamento padrão que lida bem com acentos variantes
     result = process.extractOne(nome_sujo, CIDADES_REFERENCIA, processor=utils.default_process)
-    if result and result[1] >= 80: # Score ajustado para 80
+    if result and result[1] >= 80:
         return result[0]
     return nome_sujo.title()
 
@@ -82,14 +210,10 @@ def sanitizar_pipeline(cidade_origem):
     """Pipeline Triple-Stage Otimizado (Regex Vassoura + Fallback com Acento)."""
     if pd.isna(cidade_origem): return "Não Informado", False
     
-    texto_raw = str(cidade_origem).strip() # Mantém Case Original por enquanto
-    
-    # ---------------------------------------------------------
-    # STAGE 1: TRADUTOR DE ESTRANGEIROS (Expansão LATAM)
-    # ---------------------------------------------------------
-    # Aplica sobre o texto original (lower) para capturar padrões internacionais
+    texto_raw = str(cidade_origem).strip()
     texto_lower = texto_raw.lower()
     
+    # STAGE 1: TRADUTOR DE ESTRANGEIROS (Expansão LATAM)
     mapeamento_estrangeiro = {
         r'\b(usa|eua|united states|texas|florida|miami|new york|orlando)\b': "Estados Unidos",
         r'\b(france|franca|paris)\b': "França",
@@ -118,38 +242,19 @@ def sanitizar_pipeline(cidade_origem):
         if re.search(regex, texto_lower):
             return pais, True
             
-    # ---------------------------------------------------------
     # STAGE 2: REGEX VASSOURA & LIMPEZA DE PONTUAÇÃO
-    # ---------------------------------------------------------
-    # Processa o texto mantendo acentos para o fallback final ser bonito
-    # Removemos acentos apenas para validação de siglas, mas reconstruímos a string principal
-    
-    c_limpa = texto_raw # Trabalha com o texto original (com acentos e Case)
-    
-    # 1. Remover siglas de estados (Case Insensitive com boundary)
-    # Lista de UFs do Brasil
+    c_limpa = texto_raw
     regex_ufs = r'\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b'
     c_limpa = re.sub(regex_ufs, ' ', c_limpa, flags=re.IGNORECASE)
-    
-    # 2. Remover termos redundantes
     regex_lixo = r'\b(brasil|mato grosso|cidade|estado|municipio)\b'
     c_limpa = re.sub(regex_lixo, ' ', c_limpa, flags=re.IGNORECASE)
-    
-    # 3. Remover Pontuação e Números (Mantém Letras e Espaços)
-    # Nota: [^a-zA-ZÀ-ÿ\s] preserva letras acentuadas comuns em PT-BR
     c_limpa = re.sub(r'[^a-zA-ZÀ-ÿ\s]', ' ', c_limpa)
-    
-    # 4. Normalização de Espaços
     c_limpa = re.sub(r'\s+', ' ', c_limpa).strip()
     
-    # Se sobrou vazio, era lixo total
     if not c_limpa or len(c_limpa) < 2:
         return "Não Informado", False
 
-    # 5. Tratamento de Siglas de Cidades Comuns (Ex: CBA, VG)
-    # Aqui removemos acentos temporariamente para comparar fácil
     c_temp_norm = remover_acentos(c_limpa)
-    
     siglas = {
         r'\bcba\b': "Cuiabá",
         r'\bvg\b': "Várzea Grande",
@@ -165,20 +270,18 @@ def sanitizar_pipeline(cidade_origem):
         if re.search(sigla_re, c_temp_norm):
             return nome_oficial, False
 
-    # ---------------------------------------------------------
-    # STAGE 3: FUZZY MATCHING (Score 80)
-    # ---------------------------------------------------------
-    # Enviamos a string limpa (com acentos) para o Fuzzy Match
+    # STAGE 3: FUZZY MATCHING
     nome_final = fuzzy_match_cidade(c_limpa)
     return nome_final, False
 
 # ==========================================
 # UPLOAD E CARREGAMENTO
 # ==========================================
-uploaded_files = st.file_uploader(
-    "Upload de arquivos de visitantes (XLSX ou CSV)", 
+uploaded_files = st.sidebar.file_uploader(
+    "📂 Importar Dados (XLSX/CSV)", 
     type=['xlsx', 'csv'], 
-    accept_multiple_files=True
+    accept_multiple_files=True,
+    help="Carregue as planilhas de cadastro de visitantes para iniciar o processamento."
 )
 
 if uploaded_files:
@@ -208,19 +311,16 @@ if uploaded_files:
         # ==========================================
         # PIPELINE DE TRATAMENTO
         # ==========================================
-        
-        # 1. Datas e Hora
         df_raw['Data_Hora'] = pd.to_datetime(df_raw['Data_Hora'], errors='coerce')
         df = df_raw.dropna(subset=['Data_Hora']).copy()
         
         df['Data'] = df['Data_Hora'].dt.date
-        df['Hora'] = df['Data_Hora'].dt.hour.fillna(0).astype(int) 
+        df['Hora'] = df['Data_Hora'].dt.hour.fillna(0).astype(int)
         
         mapa_dias = {'Monday': 'Segunda', 'Tuesday': 'Terça', 'Wednesday': 'Quarta', 'Thursday': 'Quinta', 'Friday': 'Sexta', 'Saturday': 'Sábado', 'Sunday': 'Domingo'}
         df['Dia_Semana'] = df['Data_Hora'].dt.strftime('%A').map(mapa_dias)
         df['Dia_Semana'] = pd.Categorical(df['Dia_Semana'], categories=list(mapa_dias.values()), ordered=True)
 
-        # 2. Sanitização Numérica
         def process_criancas(val):
             if pd.isna(val): return 0
             s = str(val).lower().strip()
@@ -244,7 +344,6 @@ if uploaded_files:
 
         df['Idade'] = df['Idade'].apply(process_idade)
 
-        # Faixa Etária
         def definir_faixa_etaria(idade):
             if pd.isna(idade): return "Não Informado"
             if idade <= 12: return "Criança (0-12)"
@@ -257,8 +356,7 @@ if uploaded_files:
         faixas_ordem = ["Criança (0-12)", "Adolescente (13-17)", "Jovem Adulto (18-35)", "Adulto (36-59)", "Idoso (60+)", "Não Informado"]
         df['Faixa_Etaria'] = pd.Categorical(df['Faixa_Etaria'], categories=faixas_ordem, ordered=True)
 
-        # 3. Sanitização 3-Stage (Pipeline Novo)
-        with st.spinner("Aplicando Inteligência Geográfica Otimizada..."):
+        with st.spinner("Processando Inteligência de Dados..."):
             resultados = df['Cidade_Origem'].apply(sanitizar_pipeline)
             df['Cidade_Limpa'] = [r[0] for r in resultados]
             df['Estrangeiro'] = [r[1] for r in resultados]
@@ -269,12 +367,12 @@ if uploaded_files:
         # ==========================================
         # INTERFACE E FILTROS
         # ==========================================
-        st.sidebar.header("🔍 Filtros Avançados")
-        periodo = st.sidebar.date_input("Intervalo de Datas", [df['Data'].min(), df['Data'].max()])
+        st.sidebar.markdown('<div class="sidebar-header">🛠️ Painel de Controle</div>', unsafe_allow_html=True)
         
-        cidades_sel = st.sidebar.multiselect("Filtrar Cidades", sorted(df['Cidade_Limpa'].unique()))
-        grupos_sel = st.sidebar.multiselect("Filtrar Tipo de Grupo", df['Tipo_Grupo'].unique())
-        gringos_only = st.sidebar.toggle("Focar Apenas em Estrangeiros")
+        periodo = st.sidebar.date_input("📅 Período de Análise", [df['Data'].min(), df['Data'].max()])
+        cidades_sel = st.sidebar.multiselect("📍 Filtrar Origem (Cidades)", sorted(df['Cidade_Limpa'].unique()))
+        grupos_sel = st.sidebar.multiselect("👥 Tipologia de Grupo", df['Tipo_Grupo'].unique())
+        gringos_only = st.sidebar.toggle("🌐 Apenas Visitantes Internacionais")
 
         df_f = df.copy()
         if len(periodo) == 2:
@@ -289,10 +387,10 @@ if uploaded_files:
             df_f = df_f[df_f['Estrangeiro']]
 
         if df_f.empty:
-            st.warning("Sem dados para os filtros selecionados.")
+            st.warning("⚠️ Nenhum registro encontrado para os filtros aplicados.")
         else:
-            # Conteúdo em Abas
-            tab1, tab2 = st.tabs(["📊 Visão Geral", "🔍 Análise Detalhada"])
+            # TABS PROFISSIONAIS
+            tab1, tab2 = st.tabs(["📊 Visão Estratégica", "🔍 Análise Tática & Demográfica"])
 
             with tab1:
                 # KPIs
@@ -302,73 +400,92 @@ if uploaded_files:
                 t_est = int(df_f[df_f['Estrangeiro']]['Total_Visitantes_Linha'].sum())
 
                 c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Público Total", f"{t_ge:,}".replace(',','.'))
-                c2.metric("Adultos", f"{t_ad:,}".replace(',','.'))
-                c3.metric("Crianças", f"{t_cr:,}".replace(',','.'))
-                c4.metric("Estrangeiros", f"{t_est:,}".replace(',','.'))
+                c1.metric("Fluxo Total", f"{t_ge:,}".replace(',','.'))
+                c2.metric("Público Adulto", f"{t_ad:,}".replace(',','.'))
+                c3.metric("Público Infantil", f"{t_cr:,}".replace(',','.'))
+                c4.metric("Turistas Internacionais", f"{t_est:,}".replace(',','.'))
                 
                 st.markdown("---")
                 
-                # BOTÃO DE EXPORTAÇÃO (FILTRADO)
+                # BOTÃO DE EXPORTAÇÃO
                 csv = df_f.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="📥 Baixar Planilha Higienizada (CSV)",
+                    label="📥 Exportar Dados Processados (.CSV)",
                     data=csv,
-                    file_name='visitantes_higienizados.csv',
+                    file_name='SIT_Visitantes_Processados.csv',
                     mime='text/csv',
                 )
 
-                sns.set_theme(style="whitegrid")
+                # Gráficos (Visual Clean e Corporativo)
+                # Configurando paleta corporativa para Matplotlib
+                plt.rcParams['font.family'] = 'sans-serif'
+                plt.rcParams['text.color'] = '#1F2937'
+                plt.rcParams['axes.labelcolor'] = '#4B5563'
+                plt.rcParams['xtick.color'] = '#4B5563'
+                plt.rcParams['ytick.color'] = '#4B5563'
+                
+                sns.set_theme(style="whitegrid", rc={"axes.facecolor": ".98", "grid.color": ".90"})
                 fig = plt.figure(figsize=(22, 14))
                 plt.subplots_adjust(hspace=0.4, wspace=0.3)
-                plt.suptitle('Dashboard Aquário - Análise Inteligente', fontsize=18, fontweight='bold', y=0.98)
+                
+                # Título discreto removido pois já está no header do app
+                # plt.suptitle('Indicadores Estratégicos', fontsize=16, fontweight='bold', y=0.98, color='#003366')
 
                 # 1. Composição
                 plt.subplot(2, 3, 1)
-                plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#3498db', '#f1c40f'], startangle=90, explode=(0.05, 0))
-                plt.title('Distribuição Adultos vs Crianças', fontweight='bold')
+                # Cores: Civic Blue e Muted Gold
+                plt.pie([t_ad, t_cr], labels=['Adultos', 'Crianças'], autopct='%1.1f%%', colors=['#003366', '#C5A059'], startangle=90, explode=(0.05, 0), textprops={'fontsize': 11})
+                plt.title('Segmentação Etária Macro', fontweight='bold', color='#111827')
 
                 # 2. Perfil
                 plt.subplot(2, 3, 2)
-                df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#e74c3c', '#2ecc71'], startangle=90)
-                plt.title('Perfil dos Visitantes', fontweight='bold')
+                # Cores: Deep Teal e Slate Blue
+                df_f['Tipo_Grupo'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#0D9488', '#475569'], startangle=90, textprops={'fontsize': 11})
+                plt.title('Tipologia dos Visitantes', fontweight='bold', color='#111827')
                 plt.ylabel('')
 
                 # 3. Evolução
                 plt.subplot(2, 3, 3)
-                df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#8e44ad')
-                plt.title('Fluxo de Visitantes no Período', fontweight='bold')
+                # Cor: Civic Blue
+                df_f.groupby('Data')['Total_Visitantes_Linha'].sum().plot(marker='o', color='#003366', linewidth=2)
+                plt.title('Tendência de Fluxo Diário', fontweight='bold', color='#111827')
+                plt.xlabel('')
                 plt.xticks(rotation=45)
+                plt.grid(axis='y', linestyle='--', alpha=0.7)
 
                 # 4. Médias
                 plt.subplot(2, 3, 4)
                 media_op = df_f.groupby('Dia_Semana')['Total_Visitantes_Linha'].sum() / df_f.groupby('Dia_Semana')['Data'].nunique()
-                sns.barplot(x=media_op.index, y=media_op.values, palette="rocket")
-                plt.title('Média de Visitantes por Dia', fontweight='bold')
+                # Palette customizada Blue -> Gold
+                sns.barplot(x=media_op.index, y=media_op.values, palette="ch:s=.25,rot=-.25")
+                plt.title('Média de Fluxo Semanal', fontweight='bold', color='#111827')
+                plt.xlabel('')
+                plt.ylabel('Média de Visitantes')
 
                 # 5. Top Cidades
                 plt.subplot(2, 3, 5)
                 top_10 = df_f['Cidade_Limpa'].value_counts().head(10)
-                sns.barplot(x=top_10.values, y=top_10.index, palette="viridis")
-                plt.title('Top 10 Cidades de Origem', fontweight='bold')
+                sns.barplot(x=top_10.values, y=top_10.index, palette="mako")
+                plt.title('Top 10 Origens (Nacional)', fontweight='bold', color='#111827')
+                plt.xlabel('Volume de Visitantes')
 
                 # 6. Estrangeiros
                 plt.subplot(2, 3, 6)
                 if t_est > 0:
                     top_es = df_f[df_f['Estrangeiro']]['Cidade_Limpa'].value_counts().head(5)
                     sns.barplot(x=top_es.values, y=top_es.index, palette="copper")
-                    plt.title('Top Países Estrangeiros', fontweight='bold')
+                    plt.title('Top Origens (Internacional)', fontweight='bold', color='#111827')
                 else:
-                    plt.text(0.5, 0.5, "Sem Estrangeiros no Período", ha='center', va='center', color='gray')
+                    plt.text(0.5, 0.5, "Sem dados internacionais no período", ha='center', va='center', color='#9CA3AF', fontsize=12)
                     plt.axis('off')
 
                 st.pyplot(fig)
 
             with tab2:
-                st.markdown("### 🔍 Inteligência Operacional & Demográfica")
+                st.markdown("### ⏲️ Análise Operacional e Demográfica")
                 
                 # Gráfico 7: Heatmap de Fluxo
-                st.markdown("#### 🔥 Mapa de Calor: Fluxo Operacional (Visitantes)")
+                st.markdown("#### Matriz de Calor: Intensidade Operacional (Dia x Hora)")
                 
                 heatmap_data = df_f.pivot_table(
                     index='Dia_Semana', 
@@ -381,10 +498,11 @@ if uploaded_files:
                 heatmap_data = heatmap_data.reindex(list(mapa_dias.values()), fill_value=0)
                 
                 fig7, ax7 = plt.subplots(figsize=(20, 6))
-                sns.heatmap(heatmap_data, cmap="YlOrRd", annot=True, fmt='g', linewidths=.5, ax=ax7)
-                plt.title('Concentração de Visitantes: Dia x Hora', fontweight='bold')
-                plt.xlabel('Hora do Dia')
-                plt.ylabel('Dia da Semana')
+                # Palette: Blues (mais institucional)
+                sns.heatmap(heatmap_data, cmap="Blues", annot=True, fmt='g', linewidths=.5, ax=ax7, cbar_kws={'label': 'Volume de Visitantes'})
+                plt.title('Mapa de Calor Operacional', fontweight='bold', color='#111827')
+                plt.xlabel('Hora do Dia', fontweight='500')
+                plt.ylabel('Dia da Semana', fontweight='500')
                 st.pyplot(fig7)
                 
                 st.markdown("---")
@@ -392,32 +510,37 @@ if uploaded_files:
                 col_a, col_b = st.columns(2)
                 
                 with col_a:
-                    st.markdown("#### 👥 Pirâmide Etária dos Visitantes")
+                    st.markdown("#### Pirâmide Etária")
                     
                     df_idade = df_f[df_f['Faixa_Etaria'] != 'Não Informado'] 
                     if df_idade.empty:
-                        st.info("Sem dados de idade suficientes.")
+                        st.info("Insuficiência de dados etários para plotagem.")
                     else:
                         fig8, ax8 = plt.subplots(figsize=(10, 6))
-                        sns.countplot(y='Faixa_Etaria', data=df_idade, palette="pastel", ax=ax8)
+                        # Palette discreta
+                        sns.countplot(y='Faixa_Etaria', data=df_idade, palette="GnBu_d", ax=ax8)
                         for container in ax8.containers:
-                            ax8.bar_label(container)
-                        plt.title('Distribuição por Faixa Etária (Declarada)', fontweight='bold')
-                        plt.xlabel('Quantidade de Visitantes')
-                        plt.ylabel('Faixa Etária')
+                            ax8.bar_label(container, padding=5)
+                        plt.title('Distribuição Etária Declarada', fontweight='bold')
+                        plt.xlabel('Quantidade')
+                        plt.ylabel('')
+                        # Remover bordas desnecessárias
+                        sns.despine(left=True, bottom=True)
                         st.pyplot(fig8)
 
                 with col_b:
-                    st.markdown("#### 👨‍👩‍👧‍👦 Distribuição de Tamanho de Grupos")
+                    st.markdown("#### Comportamento de Grupos")
                     
                     fig9, ax9 = plt.subplots(figsize=(10, 6))
-                    sns.histplot(data=df_f, x='Total_Visitantes_Linha', discrete=True, color="teal", kde=True, ax=ax9)
-                    plt.title('Frequência por Tamanho do Grupo', fontweight='bold')
-                    plt.xlabel('Pessoas no Grupo')
-                    plt.ylabel('Frequência (Entradas)')
+                    sns.histplot(data=df_f, x='Total_Visitantes_Linha', discrete=True, color="#003366", kde=True, ax=ax9, alpha=0.7)
+                    plt.title('Histograma de Dimensionamento de Grupos', fontweight='bold')
+                    plt.xlabel('Nº de Pessoas por Grupo')
+                    plt.ylabel('Ocorrências')
+                    sns.despine()
                     st.pyplot(fig9)
 
     except Exception as e:
-        st.error(f"🚨 Erro no processamento: {e}")
+        st.error(f"🚨 Erro crítico no processamento de dados: {e}")
 else:
-    st.info("💡 Carregue os arquivos para consolidar a análise e liberar a exportação.")
+    # Empty State Profissional
+    st.info("⚠️ Aguardando importação de dados. Utilize o painel lateral para carregar os arquivos .CSV ou .XLSX do sistema de cadastro.")
