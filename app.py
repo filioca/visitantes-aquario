@@ -225,11 +225,22 @@ if uploaded_files:
         # ==========================================
         st.sidebar.header("🔍 Filtros Avançados")
         periodo = st.sidebar.date_input("Intervalo de Datas", [df['Data'].min(), df['Data'].max()])
+        
+        # Filtros restaurados
+        cidades_sel = st.sidebar.multiselect("Filtrar Cidades", sorted(df['Cidade_Limpa'].unique()))
+        grupos_sel = st.sidebar.multiselect("Filtrar Tipo de Grupo", df['Tipo_Grupo'].unique())
         gringos_only = st.sidebar.toggle("Focar Apenas em Estrangeiros")
 
         df_f = df.copy()
         if len(periodo) == 2:
             df_f = df_f[(df_f['Data'] >= periodo[0]) & (df_f['Data'] <= periodo[1])]
+        
+        # Aplicação dos filtros restaurados
+        if cidades_sel:
+            df_f = df_f[df_f['Cidade_Limpa'].isin(cidades_sel)]
+        if grupos_sel:
+            df_f = df_f[df_f['Tipo_Grupo'].isin(grupos_sel)]
+            
         if gringos_only:
             df_f = df_f[df_f['Estrangeiro']]
 
